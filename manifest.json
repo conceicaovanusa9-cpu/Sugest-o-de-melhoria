@@ -1,0 +1,17 @@
+{
+  "name": "IdeaFlow — Sugestões de Melhoria",
+  "short_name": "IdeaFlow",
+  "description": "Sistema de registro e controle de sugestões de melhoria interna",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#0f1117",
+  "theme_color": "#1a1f2e",
+  "orientation": "any",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "pt-BR",
+  "scope": "/"
+}
