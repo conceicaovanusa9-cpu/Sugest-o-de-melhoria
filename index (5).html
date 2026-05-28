@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#1a1f2e">
+<meta name="description" content="Sistema de Sugestões de Melhoria Interna">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sugestões">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>IdeaFlow — Sugestões de Melhoria</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1f2e;
+  --surface2: #222840;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --accent: #4f7cff;
+  --accent2: #7c5cff;
+  --green: #22c55e;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --orange: #f97316;
+  --cyan: #06b6d4;
+  --text: #e8eaf0;
+  --text2: #8b93a7;
+  --text3: #5a6275;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --font: 'DM Sans', sans-serif;
+  --mono: 'DM Mono', monospace;
+  --sidebar: 240px;
+  --header: 60px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; display: flex; font-size: 14px; }
+
+/* SIDEBAR */
+.sidebar {
+  width: var(--sidebar); min-height: 100vh; background: var(--surface);
+  border-right: 1px solid var(--border); display: flex; flex-direction: column;
+  position: fixed; left: 0; top: 0; z-index: 100; transition: transform 0.3s;
+}
+.sidebar-logo {
+  padding: 20px 20px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+.logo-icon {
+  width: 34px; height: 34px; background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.logo-text { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; }
+.logo-sub { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.sidebar-nav { padding: 12px 10px; flex: 1; overflow-y: auto; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+  border-radius: var(--radius-sm); cursor: pointer; color: var(--text2);
+  transition: all 0.15s; margin-bottom: 2px; font-size: 13.5px; border: none;
+  background: none; width: 100%; text-align: left;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: rgba(79,124,255,0.15); color: var(--accent); }
+.nav-item .icon { font-size: 17px; width: 20px; text-align: center; flex-shrink: 0; }
+.nav-section { font-size: 10px; color: var(--text3); font-family: var(--mono); padding: 14px 12px 6px; text-transform: uppercase; letter-spacing: 1px; }
+.sidebar-footer { padding: 16px; border-top: 1px solid var(--border); }
+.total-badge {
+  background: rgba(79,124,255,0.12); border: 1px solid rgba(79,124,255,0.25);
+  border-radius: var(--radius-sm); padding: 8px 12px; font-size: 12px;
+}
+.total-badge span { color: var(--accent); font-weight: 600; font-size: 18px; display: block; font-family: var(--mono); }
+
+/* MAIN */
+.main { margin-left: var(--sidebar); flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+.topbar {
+  height: var(--header); background: var(--surface); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px; position: sticky; top: 0; z-index: 50;
+}
+.page-title { font-size: 15px; font-weight: 600; }
+.topbar-actions { display: flex; gap: 8px; align-items: center; }
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+  border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer;
+  border: none; font-family: var(--font); transition: all 0.15s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #3d6aed; }
+.btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border2); }
+.btn-ghost:hover { background: var(--surface2); color: var(--text); }
+.btn-danger { background: rgba(239,68,68,0.15); color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
+.btn-danger:hover { background: rgba(239,68,68,0.25); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.content { padding: 24px; flex: 1; }
+
+/* PAGES */
+.page { display: none; }
+.page.active { display: block; }
+
+/* STATS GRID */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px 18px;
+}
+.stat-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.stat-value { font-size: 28px; font-weight: 600; font-family: var(--mono); line-height: 1; }
+.stat-sub { font-size: 11px; color: var(--text3); margin-top: 4px; }
+.stat-card.accent { border-color: rgba(79,124,255,0.3); }
+.stat-card.green { border-color: rgba(34,197,94,0.3); }
+.stat-card.yellow { border-color: rgba(245,158,11,0.3); }
+.stat-card.red { border-color: rgba(239,68,68,0.3); }
+.stat-card.cyan { border-color: rgba(6,182,212,0.3); }
+.stat-card.orange { border-color: rgba(249,115,22,0.3); }
+
+/* CHARTS GRID */
+.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.charts-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.chart-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 18px; 
+}
+.chart-card.full { grid-column: 1 / -1; }
+.chart-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+.chart-sub { font-size: 11px; color: var(--text3); margin-bottom: 16px; }
+.chart-wrap { position: relative; height: 200px; }
+.chart-wrap-sm { position: relative; height: 160px; }
+
+/* TABLE */
+.table-wrap {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; margin-bottom: 16px;
+}
+.table-header {
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.table-search {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 7px 12px; color: var(--text); font-family: var(--font); font-size: 13px;
+  outline: none; width: 220px;
+}
+.table-search:focus { border-color: var(--accent); }
+.table-search::placeholder { color: var(--text3); }
+.table-filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.filter-select {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 6px 10px; color: var(--text2); font-family: var(--font); font-size: 12px;
+  outline: none; cursor: pointer;
+}
+.filter-select:focus { border-color: var(--accent); color: var(--text); }
+table { width: 100%; border-collapse: collapse; }
+th {
+  background: var(--surface2); padding: 10px 14px; text-align: left;
+  font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase;
+  letter-spacing: 0.5px; font-weight: 500; white-space: nowrap;
+}
+td { padding: 11px 14px; border-top: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+tr:hover td { background: rgba(255,255,255,0.02); }
+.id-badge {
+  font-family: var(--mono); font-size: 11px; background: var(--surface2);
+  border: 1px solid var(--border2); border-radius: 5px; padding: 2px 7px; color: var(--text3);
+}
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 500; white-space: nowrap;
+}
+.status-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.s-aberta { background: rgba(245,158,11,0.12); color: var(--yellow); border: 1px solid rgba(245,158,11,0.25); }
+.s-aberta::before { background: var(--yellow); }
+.s-analise { background: rgba(79,124,255,0.12); color: var(--accent); border: 1px solid rgba(79,124,255,0.25); }
+.s-analise::before { background: var(--accent); }
+.s-andamento { background: rgba(6,182,212,0.12); color: var(--cyan); border: 1px solid rgba(6,182,212,0.25); }
+.s-andamento::before { background: var(--cyan); }
+.s-concluida { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+.s-concluida::before { background: var(--green); }
+.s-cancelada { background: rgba(239,68,68,0.12); color: var(--red); border: 1px solid rgba(239,68,68,0.25); }
+.s-cancelada::before { background: var(--red); }
+.action-btn {
+  background: none; border: 1px solid var(--border2); border-radius: var(--radius-sm);
+  color: var(--text2); padding: 4px 8px; cursor: pointer; font-size: 12px;
+  transition: all 0.15s; font-family: var(--font);
+}
+.action-btn:hover { background: var(--surface2); color: var(--text); }
+.action-btn.edit:hover { color: var(--accent); border-color: rgba(79,124,255,0.4); }
+.action-btn.del:hover { color: var(--red); border-color: rgba(239,68,68,0.4); }
+.no-data { text-align: center; padding: 48px; color: var(--text3); }
+.no-data .icon { font-size: 36px; margin-bottom: 12px; }
+
+/* MODAL */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 200;
+  display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+  padding: 20px;
+}
+.overlay.open { display: flex; }
+.modal {
+  background: var(--surface); border: 1px solid var(--border2); border-radius: 16px;
+  width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+.modal-header {
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0;
+  background: var(--surface); z-index: 1;
+}
+.modal-title { font-size: 16px; font-weight: 600; }
+.modal-close {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text2); width: 30px; height: 30px; cursor: pointer; font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-close:hover { color: var(--text); background: var(--border2); }
+.modal-body { padding: 20px 24px; }
+.modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+
+/* FORM */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+label { font-size: 12px; color: var(--text2); font-weight: 500; }
+label span.req { color: var(--accent); }
+input, select, textarea {
+  background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius-sm);
+  padding: 8px 12px; color: var(--text); font-family: var(--font); font-size: 13px;
+  outline: none; transition: border-color 0.15s; width: 100%;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+textarea { resize: vertical; min-height: 80px; }
+select option { background: var(--surface2); }
+.form-row { display: flex; gap: 14px; }
+.form-row .form-group { flex: 1; }
+
+/* DETAIL VIEW */
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.detail-item { background: var(--surface2); border-radius: var(--radius-sm); padding: 10px 14px; }
+.detail-item.full { grid-column: 1 / -1; }
+.detail-label { font-size: 10px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.detail-value { font-size: 13px; color: var(--text); }
+
+/* TOAST */
+.toast-wrap { position: fixed; top: 20px; right: 20px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-sm);
+  padding: 12px 16px; font-size: 13px; min-width: 240px; display: flex; align-items: center; gap: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3); animation: slideIn 0.2s ease;
+}
+.toast.success { border-left: 3px solid var(--green); }
+.toast.error { border-left: 3px solid var(--red); }
+.toast.info { border-left: 3px solid var(--accent); }
+@keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 64px 24px; }
+.empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+.empty-title { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+.empty-desc { font-size: 13px; color: var(--text3); margin-bottom: 24px; }
+
+/* PAGINATION */
+.pagination { display: flex; align-items: center; gap: 6px; padding: 12px 18px; border-top: 1px solid var(--border); }
+.page-btn {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text2); padding: 5px 10px; cursor: pointer; font-size: 12px;
+  transition: all 0.15s; font-family: var(--mono);
+}
+.page-btn:hover, .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.page-btn:disabled { opacity: 0.4; cursor: default; }
+.page-info { font-size: 12px; color: var(--text3); margin-left: auto; font-family: var(--mono); }
+
+/* MOBILE */
+.mobile-toggle { display: none; background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; padding: 4px; }
+.sidebar-overlay { display: none; }
+
+/* INSTALL BANNER */
+.install-banner {
+  background: linear-gradient(135deg, rgba(79,124,255,0.15), rgba(124,92,255,0.15));
+  border: 1px solid rgba(79,124,255,0.3); border-radius: var(--radius); padding: 16px 20px;
+  margin-bottom: 24px; display: flex; align-items: center; gap: 16px;
+}
+.install-banner-text { flex: 1; }
+.install-banner-title { font-weight: 600; font-size: 14px; margin-bottom: 3px; }
+.install-banner-desc { font-size: 12px; color: var(--text2); }
+#installBtn { display: none; }
+
+/* PROGRESS BAR */
+.progress-bar { background: var(--surface2); border-radius: 4px; height: 6px; overflow: hidden; }
+.progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+
+/* LEGEND */
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+@media (max-width: 900px) {
+  .charts-grid { grid-template-columns: 1fr; }
+  .charts-grid-3 { grid-template-columns: 1fr; }
+  .detail-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .form-group.full { grid-column: 1; }
+}
+@media (max-width: 700px) {
+  :root { --sidebar: 0px; }
+  .sidebar { transform: translateX(-240px); width: 240px; }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .mobile-toggle { display: block; }
+  .sidebar-overlay { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; display: none; }
+  .sidebar-overlay.open { display: block; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .table-header { flex-direction: column; align-items: stretch; }
+  .table-search { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- SIDEBAR -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">💡</div>
+    <div>
+      <div class="logo-text">IdeaFlow</div>
+      <div class="logo-sub">v1.0 — melhorias</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">Navegação</div>
+    <button class="nav-item active" onclick="showPage('dashboard')">
+      <span class="icon">📊</span> Dashboard
+    </button>
+    <button class="nav-item" onclick="showPage('lista')">
+      <span class="icon">📋</span> Sugestões
+    </button>
+    <button class="nav-item" onclick="showPage('nova')">
+      <span class="icon">✨</span> Nova Sugestão
+    </button>
+    <div class="nav-section">Relatórios</div>
+    <button class="nav-item" onclick="showPage('relatorios')">
+      <span class="icon">📈</span> Relatórios
+    </button>
+    <button class="nav-item" onclick="showPage('prazos')">
+      <span class="icon">⏰</span> Prazos
+    </button>
+    <div class="nav-section">Dados</div>
+    <button class="nav-item" onclick="exportData()">
+      <span class="icon">📤</span> Exportar CSV
+    </button>
+    <button class="nav-item" onclick="importClick()">
+      <span class="icon">📥</span> Importar CSV
+    </button>
+    <input type="file" id="importFile" accept=".csv,.json" style="display:none" onchange="importData(event)">
+  </nav>
+  <div class="sidebar-footer">
+    <div class="total-badge">
+      <span id="sidebarTotal">0</span>
+      sugestões registradas
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+      <span class="page-title" id="pageTitle">Dashboard</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-ghost btn-sm" onclick="showPage('lista')">Ver tudo</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal()">+ Nova</button>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="install-banner" id="installBanner" style="display:none">
+        <div style="font-size:28px">📱</div>
+        <div class="install-banner-text">
+          <div class="install-banner-title">Instale o app no seu dispositivo</div>
+          <div class="install-banner-desc">Acesse o IdeaFlow offline, direto da tela inicial</div>
+        </div>
+        <button class="btn btn-primary btn-sm" id="installBtn" onclick="installPWA()">Instalar</button>
+      </div>
+
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="charts-grid" id="chartsGrid">
+        <div class="chart-card">
+          <div class="chart-title">Sugestões por Status</div>
+          <div class="chart-sub">Distribuição atual</div>
+          <div class="chart-wrap"><canvas id="chartStatus"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Sugestões por Tipo</div>
+          <div class="chart-sub">Categorias registradas</div>
+          <div class="chart-wrap"><canvas id="chartTipo"></canvas></div>
+        </div>
+        <div class="chart-card full">
+          <div class="chart-title">Evolução Mensal</div>
+          <div class="chart-sub">Sugestões abertas por mês</div>
+          <div class="chart-wrap"><canvas id="chartMensal"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Recentes -->
+      <div class="table-wrap">
+        <div class="table-header">
+          <span style="font-size:13px;font-weight:600">Registros Recentes</span>
+        </div>
+        <table>
+          <thead><tr>
+            <th>ID</th><th>Data</th><th>Nome</th><th>Tipo</th><th>Setor</th><th>Status</th>
+          </tr></thead>
+          <tbody id="recentTable"><tr><td colspan="6" class="no-data">Nenhum registro</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LISTA -->
+    <div class="page" id="page-lista">
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-filters">
+            <input class="table-search" type="text" id="searchInput" placeholder="🔍  Buscar..." oninput="renderTable()">
+            <select class="filter-select" id="filterStatus" onchange="renderTable()">
+              <option value="">Todos os status</option>
+              <option>Aberta</option>
+              <option>Em Análise</option>
+              <option>Em Andamento</option>
+              <option>Concluída</option>
+              <option>Cancelada</option>
+            </select>
+            <select class="filter-select" id="filterTipo" onchange="renderTable()">
+              <option value="">Todos os tipos</option>
+              <option>Processo</option>
+              <option>Produto</option>
+              <option>Segurança</option>
+              <option>Qualidade</option>
+              <option>Tecnologia</option>
+              <option>Ambiental</option>
+              <option>Custo</option>
+              <option>Outros</option>
+            </select>
+            <select class="filter-select" id="filterAnoMes" onchange="renderTable()">
+              <option value="">Todos os períodos</option>
+            </select>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="openModal()">+ Nova</button>
+        </div>
+        <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>ID</th><th>Data</th><th>Nome</th><th>Email</th><th>Tipo</th>
+            <th>C. Custo</th><th>Setor</th><th>Ano/Mês</th><th>Status</th>
+            <th>Responsável</th><th>Prazo</th><th>Ações</th>
+          </tr></thead>
+          <tbody id="mainTable"></tbody>
+        </table>
+        </div>
+        <div class="pagination" id="pagination"></div>
+      </div>
+    </div>
+
+    <!-- NOVA -->
+    <div class="page" id="page-nova">
+      <div style="max-width:680px">
+        <div class="table-wrap">
+          <div class="table-header"><span style="font-size:14px;font-weight:600">✨ Registrar Nova Sugestão</span></div>
+          <div style="padding:24px" id="quickFormWrap">
+            <!-- form rendered by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RELATÓRIOS -->
+    <div class="page" id="page-relatorios">
+      <div class="charts-grid-3">
+        <div class="chart-card">
+          <div class="chart-title">Por Setor</div>
+          <div class="chart-sub">Qtd de sugestões</div>
+          <div class="chart-wrap-sm"><canvas id="chartSetor"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Por Centro de Custo</div>
+          <div class="chart-sub">Qtd de sugestões</div>
+          <div class="chart-wrap-sm"><canvas id="chartCC"></canvas></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Por Responsável</div>
+          <div class="chart-sub">Qtd atribuídas</div>
+          <div class="chart-wrap-sm"><canvas id="chartResp"></canvas></div>
+        </div>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-card">
+          <div class="chart-title">Taxa de Conclusão</div>
+          <div class="chart-sub">Progresso geral</div>
+          <div id="conclusaoStats"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Sugestões por Mês/Ano</div>
+          <div class="chart-sub">Filtro por período</div>
+          <div class="chart-wrap"><canvas id="chartPeriodo"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRAZOS -->
+    <div class="page" id="page-prazos">
+      <div class="stats-grid" id="prazosStats"></div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <span style="font-size:13px;font-weight:600">⏰ Controle de Prazos</span>
+          <select class="filter-select" id="filterPrazo" onchange="renderPrazos()">
+            <option value="">Todos</option>
+            <option value="atrasado">Atrasados</option>
+            <option value="hoje">Vencem hoje</option>
+            <option value="semana">Próximos 7 dias</option>
+            <option value="mes">Próximos 30 dias</option>
+          </select>
+        </div>
+        <div style="overflow-x:auto">
+        <table>
+          <thead><tr>
+            <th>ID</th><th>Nome</th><th>Tipo</th><th>Status</th><th>Responsável</th><th>Prazo</th><th>Situação</th><th>Ações</th>
+          </tr></thead>
+          <tbody id="prazosTable"></tbody>
+        </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- MODAL FORM -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Nova Sugestão</span>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" id="formFields"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveForm()" id="saveBtn">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETAIL -->
+<div class="overlay" id="detailOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="detailTitle">Detalhes da Sugestão</span>
+      <button class="modal-close" onclick="closeDetail()">×</button>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeDetail()">Fechar</button>
+      <button class="btn btn-primary" onclick="editFromDetail()">✏️ Editar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== DATA =====================
+// ===================== GOOGLE SHEETS CONFIG =====================
+// Cole aqui a URL do seu Web App do Google Apps Script:
+const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbwzarHp-iwMnCI6n4Rp3UlaMyVErEHbK1iqHCQrg0obea0nMCf7eyF2k3qKRPYC6e8YUg/exec';
+// ================================================================
+
+let data = [];
+let editingId = null;
+let currentPage = 1;
+const PER_PAGE = 15;
+let charts = {};
+let deferredPrompt = null;
+let detailId = null;
+
+const TIPOS = ['Processo','Produto','Segurança','Qualidade','Tecnologia','Ambiental','Custo','Outros'];
+const STATUS_LIST = ['Aberta','Em Análise','Em Andamento','Concluída','Cancelada'];
+const STATUS_CLASSES = { 'Aberta':'s-aberta','Em Análise':'s-analise','Em Andamento':'s-andamento','Concluída':'s-concluida','Cancelada':'s-cancelada' };
+const STATUS_COLORS = { 'Aberta':'#f59e0b','Em Análise':'#4f7cff','Em Andamento':'#06b6d4','Concluída':'#22c55e','Cancelada':'#ef4444' };
+const TIPO_COLORS = ['#4f7cff','#7c5cff','#06b6d4','#22c55e','#f59e0b','#f97316','#ef4444','#8b93a7'];
+
+// Mostra/oculta overlay de loading
+function setLoading(on) {
+  let el = document.getElementById('sheetsLoading');
+  if(!el) {
+    el = document.createElement('div');
+    el.id = 'sheetsLoading';
+    el.innerHTML = '<div style="background:var(--card);padding:24px 32px;border-radius:12px;color:var(--text);font-size:15px;box-shadow:0 4px 24px #0008;display:flex;align-items:center;gap:12px"><span style="font-size:20px">&#9203;</span> Sincronizando com Google Sheets...</div>';
+    el.style.cssText = 'position:fixed;inset:0;background:#0008;z-index:9999;display:flex;align-items:center;justify-content:center';
+    document.body.appendChild(el);
+  }
+  el.style.display = on ? 'flex' : 'none';
+}
+
+async function load() {
+  setLoading(true);
+  try {
+    // GET simples ao GAS para leitura. Requer que o Web App esteja publicado como
+    // "Executar como: Eu" e "Quem tem acesso: Qualquer pessoa (inclusive anônimos)".
+    const res = await fetch(SHEETS_URL + '?action=read');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    data = Array.isArray(json) ? json : [];
+    // Não gera dados de amostra automaticamente — deixa planilha vazia ao iniciar
+  } catch(e) {
+    console.error('Erro ao carregar do Google Sheets:', e);
+    toast('⚠️ Não foi possível conectar ao Google Sheets. Verifique se o Web App está publicado corretamente.', 'error');
+    data = [];
+  } finally {
+    setLoading(false);
+    showPage('dashboard');
+    document.getElementById('sidebarTotal').textContent = data.length;
+  }
+}
+
+async function save(record, action) {
+  try {
+    // CORS: Google Apps Script exige mode:'no-cors' para POST de domínios externos.
+    // Com no-cors, a resposta é opaca (não pode ser lida), mas o GAS recebe e processa normalmente.
+    // O Content-Type deve ser 'text/plain' pois 'application/json' dispara preflight bloqueado pelo GAS.
+    await fetch(SHEETS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({ action, record })
+    });
+  } catch(e) {
+    console.error('Erro ao salvar no Google Sheets:', e);
+    toast('Erro ao salvar. Verifique a URL do Web App.', 'error');
+    throw e;
+  }
+}
+function genId() { return 'SUG-' + String(Date.now()).slice(-6) + String(Math.floor(Math.random()*100)).padStart(2,'0'); }
+function today() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(d) { if(!d) return '—'; const [y,m,dd] = d.split('-'); return `${dd}/${m}/${y}`; }
+function anoMes(d) { if(!d) return ''; const [y,m] = d.split('-'); return `${y}/${m}`; }
+
+async function addSampleData() {
+  const nomes = ['Ana Souza','Carlos Mendes','Beatriz Lima','Fernando Costa','Lucia Alves','Pedro Santos','Mariana Rocha'];
+  const setores = ['Produção','Qualidade','TI','RH','Financeiro','Logística','Comercial'];
+  const ccs = ['CC-001','CC-002','CC-003','CC-004','CC-005'];
+  const resps = ['João Diretor','Maria Coord','Paulo Gerente','Sandra Supervisora'];
+  const tipos = ['Processo','Produto','Segurança','Qualidade','Tecnologia','Ambiental','Custo'];
+  const status = ['Aberta','Em Análise','Em Andamento','Concluída','Cancelada'];
+  const descricoes = [
+    'Implementar sistema de controle de qualidade no setor de produção para reduzir desperdícios.',
+    'Criar canal digital para comunicação entre equipes e agilizar processos internos.',
+    'Revisão dos procedimentos de segurança nas áreas de risco com treinamentos periódicos.',
+    'Automatizar relatórios mensais para economizar tempo da equipe de finanças.',
+    'Melhorar o processo de onboarding de novos colaboradores com materiais digitais.',
+    'Instalação de coletores de lixo reciclável em todas as áreas da empresa.',
+    'Negociar melhores condições com fornecedores para reduzir custo de matéria-prima.',
+  ];
+  for(let i=0;i<12;i++){
+    const st = status[Math.floor(Math.random()*status.length)];
+    const d = new Date(); d.setDate(d.getDate() - Math.floor(Math.random()*180));
+    const ds = d.toISOString().split('T')[0];
+    const prazo = new Date(d); prazo.setDate(prazo.getDate() + 30 + Math.floor(Math.random()*60));
+    data.push({
+      id: genId(), data: ds, email: nomes[i%nomes.length].toLowerCase().replace(' ','.') + '@empresa.com',
+      nome: nomes[i%nomes.length], tipo: tipos[i%tipos.length],
+      centroCusto: ccs[i%ccs.length], setor: setores[i%setores.length],
+      descricao: descricoes[i%descricoes.length], anoMes: anoMes(ds),
+      status: st, responsavel: resps[i%resps.length],
+      feito: st === 'Concluída' ? 'Implementação concluída com sucesso.' : '',
+      prazo: prazo.toISOString().split('T')[0],
+      dataConclusao: st === 'Concluída' ? prazo.toISOString().split('T')[0] : ''
+    });
+  }
+  // salva todos de uma vez no sheets
+  for(const rec of data) {
+    await save(rec, 'create');
+  }
+}
+
+// ===================== PAGES =====================
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const titles = { dashboard:'Dashboard', lista:'Sugestões', nova:'Nova Sugestão', relatorios:'Relatórios', prazos:'Prazos' };
+  document.getElementById('pageTitle').textContent = titles[id] || '';
+  closeSidebar();
+  if(id === 'dashboard') renderDashboard();
+  else if(id === 'lista') { renderTable(); updateAnoMesFilter(); }
+  else if(id === 'nova') renderQuickForm();
+  else if(id === 'relatorios') renderRelatorios();
+  else if(id === 'prazos') renderPrazos();
+  document.querySelectorAll('.nav-item')[['dashboard','lista','nova','relatorios','prazos'].indexOf(id)]?.classList.add('active');
+  document.getElementById('sidebarTotal').textContent = data.length;
+}
+
+// ===================== DASHBOARD =====================
+function renderDashboard() {
+  const total = data.length;
+  const concluidas = data.filter(d => d.status === 'Concluída').length;
+  const abertas = data.filter(d => d.status === 'Aberta').length;
+  const andamento = data.filter(d => d.status === 'Em Andamento').length;
+  const atrasadas = data.filter(d => d.prazo && d.prazo < today() && d.status !== 'Concluída' && d.status !== 'Cancelada').length;
+  const analise = data.filter(d => d.status === 'Em Análise').length;
+  const perc = total ? Math.round(concluidas/total*100) : 0;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card accent"><div class="stat-label">Total</div><div class="stat-value" style="color:var(--accent)">${total}</div><div class="stat-sub">sugestões registradas</div></div>
+    <div class="stat-card yellow"><div class="stat-label">Abertas</div><div class="stat-value" style="color:var(--yellow)">${abertas}</div><div class="stat-sub">aguardando análise</div></div>
+    <div class="stat-card cyan"><div class="stat-label">Em Andamento</div><div class="stat-value" style="color:var(--cyan)">${andamento}</div><div class="stat-sub">em execução</div></div>
+    <div class="stat-card green"><div class="stat-label">Concluídas</div><div class="stat-value" style="color:var(--green)">${concluidas}</div><div class="stat-sub">${perc}% do total</div></div>
+    <div class="stat-card red"><div class="stat-label">Atrasadas</div><div class="stat-value" style="color:var(--red)">${atrasadas}</div><div class="stat-sub">prazo vencido</div></div>
+    <div class="stat-card"><div class="stat-label">Em Análise</div><div class="stat-value" style="color:var(--accent2)">${analise}</div><div class="stat-sub">sendo avaliadas</div></div>
+  `;
+
+  // status chart
+  const statusCounts = {};
+  STATUS_LIST.forEach(s => statusCounts[s] = data.filter(d=>d.status===s).length);
+  buildChart('chartStatus','doughnut',
+    Object.keys(statusCounts), Object.values(statusCounts),
+    Object.keys(statusCounts).map(s=>STATUS_COLORS[s])
+  );
+
+  // tipo chart
+  const tipoCounts = {};
+  TIPOS.forEach(t => tipoCounts[t] = data.filter(d=>d.tipo===t).length);
+  const tipoFiltered = Object.entries(tipoCounts).filter(([,v])=>v>0);
+  buildChart('chartTipo','bar',
+    tipoFiltered.map(([k])=>k), tipoFiltered.map(([,v])=>v),
+    tipoFiltered.map((_,i)=>TIPO_COLORS[i%TIPO_COLORS.length]), 'horizontal'
+  );
+
+  // mensal chart
+  const monthly = {};
+  data.forEach(d => { const k = d.anoMes || d.data?.slice(0,7); if(k) monthly[k] = (monthly[k]||0)+1; });
+  const sortedMonths = Object.keys(monthly).sort();
+  buildChart('chartMensal','line',
+    sortedMonths.map(m => { const [y,mm] = m.split('-'); return `${mm}/${y}`; }),
+    sortedMonths.map(k => monthly[k]),
+    ['#4f7cff'], 'line'
+  );
+
+  // recent
+  const recent = [...data].sort((a,b) => b.data > a.data ? 1:-1).slice(0,5);
+  document.getElementById('recentTable').innerHTML = recent.length ? recent.map(r => `
+    <tr onclick="showDetail('${r.id}')" style="cursor:pointer">
+      <td><span class="id-badge">${r.id}</span></td>
+      <td>${fmtDate(r.data)}</td>
+      <td>${r.nome}</td>
+      <td>${r.tipo}</td>
+      <td>${r.setor}</td>
+      <td><span class="status-badge ${STATUS_CLASSES[r.status]||''}">${r.status}</span></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="no-data">Sem dados</td></tr>';
+}
+
+function buildChart(id, type, labels, values, colors, variant) {
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  if(charts[id]) { charts[id].destroy(); }
+  const isHoriz = variant === 'horizontal';
+  const isLine = type === 'line';
+  charts[id] = new Chart(ctx, {
+    type: isHoriz ? 'bar' : type,
+    data: {
+      labels,
+      datasets:[{
+        data: values,
+        backgroundColor: isLine ? 'rgba(79,124,255,0.15)' : colors,
+        borderColor: isLine ? '#4f7cff' : colors,
+        borderWidth: isLine ? 2 : (type==='doughnut'?0:0),
+        fill: isLine,
+        tension: 0.4,
+        pointBackgroundColor: '#4f7cff',
+        pointRadius: isLine ? 4 : 0,
+      }]
+    },
+    options: {
+      indexAxis: isHoriz ? 'y' : 'x',
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: type==='doughnut', position:'bottom', labels:{ color:'#8b93a7', font:{size:11}, padding:12 } } },
+      scales: type==='doughnut' ? {} : {
+        x: { ticks:{ color:'#8b93a7', font:{size:11} }, grid:{ color:'rgba(255,255,255,0.05)' } },
+        y: { ticks:{ color:'#8b93a7', font:{size:11} }, grid:{ color:'rgba(255,255,255,0.05)' } }
+      }
+    }
+  });
+}
+
+// ===================== TABLE =====================
+function updateAnoMesFilter() {
+  const sel = document.getElementById('filterAnoMes');
+  if(!sel) return;
+  const periods = [...new Set(data.map(d => d.anoMes).filter(Boolean))].sort().reverse();
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">Todos os períodos</option>' + periods.map(p => `<option ${p===cur?'selected':''}>${p}</option>`).join('');
+}
+
+function renderTable() {
+  const q = (document.getElementById('searchInput')?.value||'').toLowerCase();
+  const fs = document.getElementById('filterStatus')?.value||'';
+  const ft = document.getElementById('filterTipo')?.value||'';
+  const fam = document.getElementById('filterAnoMes')?.value||'';
+  let rows = data.filter(d => {
+    const text = [d.id,d.nome,d.email,d.setor,d.centroCusto,d.responsavel,d.descricao].join(' ').toLowerCase();
+    return (!q || text.includes(q)) && (!fs || d.status===fs) && (!ft || d.tipo===ft) && (!fam || d.anoMes===fam);
+  }).sort((a,b) => b.data > a.data ? 1:-1);
+  const total = rows.length;
+  const pages = Math.ceil(total/PER_PAGE);
+  if(currentPage > pages) currentPage = 1;
+  const slice = rows.slice((currentPage-1)*PER_PAGE, currentPage*PER_PAGE);
+  const tbody = document.getElementById('mainTable');
+  if(!tbody) return;
+  tbody.innerHTML = slice.length ? slice.map(r => `
+    <tr>
+      <td><span class="id-badge">${r.id}</span></td>
+      <td>${fmtDate(r.data)}</td>
+      <td>${r.nome}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.email}</td>
+      <td>${r.tipo}</td>
+      <td>${r.centroCusto}</td>
+      <td>${r.setor}</td>
+      <td style="font-family:var(--mono);font-size:11px">${r.anoMes||'—'}</td>
+      <td><span class="status-badge ${STATUS_CLASSES[r.status]||''}">${r.status}</span></td>
+      <td>${r.responsavel||'—'}</td>
+      <td style="font-family:var(--mono);font-size:11px">${fmtDate(r.prazo)}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="action-btn" onclick="showDetail('${r.id}')">👁</button>
+          <button class="action-btn edit" onclick="openModal('${r.id}')">✏️</button>
+          <button class="action-btn del" onclick="deleteRow('${r.id}')">🗑</button>
+        </div>
+      </td>
+    </tr>`).join('') : '<tr><td colspan="12" class="no-data"><div class="icon">📋</div>Nenhuma sugestão encontrada</td></tr>';
+
+  // pagination
+  const pag = document.getElementById('pagination');
+  if(!pag) return;
+  let pagHtml = `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage<=1?'disabled':''}>‹</button>`;
+  for(let i=1;i<=Math.min(pages,7);i++) pagHtml += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+  if(pages>7) pagHtml += `<span style="color:var(--text3);font-size:12px">...</span>`;
+  pagHtml += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage>=pages?'disabled':''}>›</button>`;
+  pagHtml += `<span class="page-info">${total} resultado${total!==1?'s':''}</span>`;
+  pag.innerHTML = pagHtml;
+}
+function goPage(p) { currentPage=p; renderTable(); }
+
+// ===================== FORM =====================
+const FIELDS = [
+  { key:'data', label:'Data', type:'date', req:true },
+  { key:'email', label:'Email', type:'email', req:true },
+  { key:'nome', label:'Nome completo', type:'text', req:true },
+  { key:'tipo', label:'Tipo de sugestão', type:'select', options: TIPOS, req:true },
+  { key:'centroCusto', label:'Centro de Custo', type:'text', req:true },
+  { key:'setor', label:'Setor da empresa', type:'select', options:['Produção','Qualidade','TI','RH','Financeiro','Logística','Comercial','Outro'], req:true },
+  { key:'anoMes', label:'Ano/Mês (controle)', type:'month', req:false },
+  { key:'status', label:'Status', type:'select', options: STATUS_LIST, req:true },
+  { key:'responsavel', label:'Responsável', type:'text', req:false },
+  { key:'prazo', label:'Prazo para conclusão', type:'date', req:false },
+  { key:'dataConclusao', label:'Data de conclusão', type:'date', req:false },
+  { key:'descricao', label:'Descrição da sugestão', type:'textarea', req:true, full:true },
+  { key:'feito', label:'O que foi feito', type:'textarea', req:false, full:true },
+];
+
+function buildFormHTML(record) {
+  return FIELDS.map(f => {
+    const val = record?.[f.key]||'';
+    const cls = f.full ? 'form-group full' : 'form-group';
+    let input = '';
+    if(f.type === 'select') {
+      input = `<select id="f_${f.key}">${f.options.map(o=>`<option ${val===o?'selected':''}>${o}</option>`).join('')}</select>`;
+    } else if(f.type === 'textarea') {
+      input = `<textarea id="f_${f.key}" rows="3">${val}</textarea>`;
+    } else if(f.type === 'month') {
+      const mv = val ? val.replace('/','-') : '';
+      input = `<input type="month" id="f_${f.key}" value="${mv}">`;
+    } else {
+      input = `<input type="${f.type}" id="f_${f.key}" value="${val}" ${f.type==='date'?'':'placeholder="'+(f.label)+'"'}>`;
+    }
+    return `<div class="${cls}"><label>${f.label}${f.req?' <span class="req">*</span>':''}</label>${input}</div>`;
+  }).join('');
+}
+
+function openModal(id) {
+  editingId = id||null;
+  const rec = id ? data.find(d=>d.id===id) : null;
+  document.getElementById('modalTitle').textContent = id ? '✏️ Editar Sugestão' : '✨ Nova Sugestão';
+  document.getElementById('formFields').innerHTML = buildFormHTML(rec);
+  if(!rec) {
+    const today_ = today();
+    document.getElementById('f_data').value = today_;
+    const [y,m] = today_.split('-');
+    document.getElementById('f_anoMes').value = `${y}-${m}`;
+    document.getElementById('f_status').value = 'Aberta';
+  }
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); editingId=null; }
+
+async function saveForm() {
+  const rec = {};
+  let valid = true;
+  FIELDS.forEach(f => {
+    let el = document.getElementById('f_'+f.key);
+    if(!el) return;
+    let val = el.value.trim();
+    if(f.type==='month' && val) val = val.replace('-','/');
+    if(f.req && !val) { el.style.borderColor='var(--red)'; valid=false; } else { el.style.borderColor=''; }
+    rec[f.key] = val;
+  });
+  if(!valid) { toast('Preencha os campos obrigatórios','error'); return; }
+  setLoading(true);
+  try {
+    if(editingId) {
+      const idx = data.findIndex(d=>d.id===editingId);
+      data[idx] = { ...data[idx], ...rec };
+      await save(data[idx], 'update');
+      toast('Sugestão atualizada!','success');
+    } else {
+      rec.id = genId();
+      data.unshift(rec);
+      await save(rec, 'create');
+      toast('Sugestão registrada com sucesso!','success');
+    }
+    closeModal();
+    document.getElementById('sidebarTotal').textContent = data.length;
+    renderTable();
+  } catch(e) {
+    // toast de erro já disparado dentro de save()
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function deleteRow(id) {
+  if(!confirm('Excluir esta sugestão?')) return;
+  setLoading(true);
+  try {
+    await save({ id }, 'delete');
+    data = data.filter(d=>d.id!==id);
+    renderTable();
+    document.getElementById('sidebarTotal').textContent = data.length;
+    toast('Sugestão excluída','info');
+  } catch(e) {
+    // toast de erro já disparado
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ===================== DETAIL =====================
+function showDetail(id) {
+  detailId = id;
+  const r = data.find(d=>d.id===id);
+  if(!r) return;
+  document.getElementById('detailTitle').textContent = `Sugestão ${r.id}`;
+  const fields = [
+    ['ID', r.id], ['Data', fmtDate(r.data)], ['Ano/Mês', r.anoMes||'—'],
+    ['Nome', r.nome], ['Email', r.email], ['Tipo', r.tipo],
+    ['Centro de Custo', r.centroCusto], ['Setor', r.setor],
+    ['Status', `<span class="status-badge ${STATUS_CLASSES[r.status]||''}">${r.status}</span>`],
+    ['Responsável', r.responsavel||'—'],
+    ['Prazo', fmtDate(r.prazo)], ['Data de Conclusão', fmtDate(r.dataConclusao)],
+    ['Descrição', r.descricao, true],
+    ['O que foi feito', r.feito||'—', true],
+  ];
+  document.getElementById('detailBody').innerHTML = `
+    <div class="detail-grid">${fields.map(([l,v,full])=>`
+      <div class="detail-item ${full?'full':''}">
+        <div class="detail-label">${l}</div>
+        <div class="detail-value">${v}</div>
+      </div>`).join('')}
+    </div>`;
+  document.getElementById('detailOverlay').classList.add('open');
+}
+function closeDetail() { document.getElementById('detailOverlay').classList.remove('open'); }
+function editFromDetail() { closeDetail(); openModal(detailId); }
+
+// ===================== QUICK FORM =====================
+function renderQuickForm() {
+  document.getElementById('quickFormWrap').innerHTML = `
+    <div class="form-grid">${buildFormHTML(null)}</div>
+    <div style="margin-top:20px;display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="showPage('lista')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveQuickForm()">💾 Salvar Sugestão</button>
+    </div>`;
+  const today_ = today();
+  document.getElementById('f_data').value = today_;
+  const [y,m] = today_.split('-');
+  document.getElementById('f_anoMes').value = `${y}-${m}`;
+  document.getElementById('f_status').value = 'Aberta';
+}
+async function saveQuickForm() {
+  const rec = {};
+  let valid = true;
+  FIELDS.forEach(f => {
+    let el = document.getElementById('f_'+f.key);
+    if(!el) return;
+    let val = el.value.trim();
+    if(f.type==='month' && val) val = val.replace('-','/');
+    if(f.req && !val) { el.style.borderColor='var(--red)'; valid=false; } else { el.style.borderColor=''; }
+    rec[f.key] = val;
+  });
+  if(!valid) { toast('Preencha os campos obrigatórios','error'); return; }
+  rec.id = genId();
+  setLoading(true);
+  try {
+    await save(rec, 'create');
+    data.unshift(rec);
+    document.getElementById('sidebarTotal').textContent = data.length;
+    toast('Sugestão registrada!','success');
+    showPage('lista');
+  } catch(e) {
+    // toast de erro já disparado
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ===================== RELATÓRIOS =====================
+function renderRelatorios() {
+  // setor
+  const setores = {}; data.forEach(d => setores[d.setor] = (setores[d.setor]||0)+1);
+  const se = Object.entries(setores).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  buildChart('chartSetor','bar',se.map(([k])=>k),se.map(([,v])=>v),se.map((_,i)=>TIPO_COLORS[i%TIPO_COLORS.length]),'horizontal');
+
+  // cc
+  const ccs = {}; data.forEach(d => ccs[d.centroCusto] = (ccs[d.centroCusto]||0)+1);
+  const ce = Object.entries(ccs).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  buildChart('chartCC','bar',ce.map(([k])=>k),ce.map(([,v])=>v),ce.map((_,i)=>TIPO_COLORS[i%TIPO_COLORS.length]),'horizontal');
+
+  // responsáveis
+  const resps = {}; data.forEach(d => { if(d.responsavel) resps[d.responsavel] = (resps[d.responsavel]||0)+1; });
+  const re = Object.entries(resps).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  buildChart('chartResp','bar',re.map(([k])=>k),re.map(([,v])=>v),re.map((_,i)=>TIPO_COLORS[i%TIPO_COLORS.length]),'horizontal');
+
+  // conclusão
+  const total = data.length;
+  const concluidas = data.filter(d=>d.status==='Concluída').length;
+  const perc = total ? Math.round(concluidas/total*100) : 0;
+  document.getElementById('conclusaoStats').innerHTML = `
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:13px">Taxa de conclusão</span>
+        <span style="font-size:14px;font-weight:600;color:var(--green);font-family:var(--mono)">${perc}%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${perc}%;background:var(--green)"></div></div>
+    </div>
+    ${STATUS_LIST.map(s=>{
+      const n = data.filter(d=>d.status===s).length;
+      const p = total ? Math.round(n/total*100) : 0;
+      return `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-size:12px;color:var(--text2)">${s}</span>
+          <span style="font-size:12px;font-family:var(--mono)">${n} (${p}%)</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" style="width:${p}%;background:${STATUS_COLORS[s]}"></div></div>
+      </div>`;
+    }).join('')}`;
+
+  // período
+  const monthly = {};
+  data.forEach(d => { const k = d.anoMes||d.data?.slice(0,7); if(k) monthly[k] = (monthly[k]||0)+1; });
+  const sm = Object.keys(monthly).sort();
+  buildChart('chartPeriodo','bar',sm.map(m=>{const [y,mm]=m.split('/');return `${mm||m.split('-')[1]}/${y||m.split('-')[0]}`}),sm.map(k=>monthly[k]),sm.map((_,i)=>TIPO_COLORS[i%TIPO_COLORS.length]));
+}
+
+// ===================== PRAZOS =====================
+function renderPrazos() {
+  const todayStr = today();
+  const in7 = new Date(); in7.setDate(in7.getDate()+7); const in7Str = in7.toISOString().split('T')[0];
+  const in30 = new Date(); in30.setDate(in30.getDate()+30); const in30Str = in30.toISOString().split('T')[0];
+  const ativos = data.filter(d=>d.status!=='Concluída'&&d.status!=='Cancelada'&&d.prazo);
+  const atrasados = ativos.filter(d=>d.prazo < todayStr);
+  const hoje = ativos.filter(d=>d.prazo === todayStr);
+  const semana = ativos.filter(d=>d.prazo>todayStr&&d.prazo<=in7Str);
+  document.getElementById('prazosStats').innerHTML = `
+    <div class="stat-card red"><div class="stat-label">Atrasados</div><div class="stat-value" style="color:var(--red)">${atrasados.length}</div><div class="stat-sub">prazo vencido</div></div>
+    <div class="stat-card yellow"><div class="stat-label">Vencem hoje</div><div class="stat-value" style="color:var(--yellow)">${hoje.length}</div></div>
+    <div class="stat-card cyan"><div class="stat-label">Próx. 7 dias</div><div class="stat-value" style="color:var(--cyan)">${semana.length}</div></div>
+    <div class="stat-card accent"><div class="stat-label">Com prazo ativo</div><div class="stat-value" style="color:var(--accent)">${ativos.length}</div></div>`;
+  renderPrazosTable(ativos, todayStr, in7Str, in30Str);
+}
+function renderPrazosTable(ativos, todayStr, in7Str, in30Str) {
+  const f = document.getElementById('filterPrazo')?.value||'';
+  let rows = ativos;
+  if(f==='atrasado') rows = ativos.filter(d=>d.prazo<todayStr);
+  else if(f==='hoje') rows = ativos.filter(d=>d.prazo===todayStr);
+  else if(f==='semana') rows = ativos.filter(d=>d.prazo>todayStr&&d.prazo<=in7Str);
+  else if(f==='mes') rows = ativos.filter(d=>d.prazo>todayStr&&d.prazo<=in30Str);
+  rows = rows.sort((a,b)=>a.prazo>b.prazo?1:-1);
+  const tbody = document.getElementById('prazosTable');
+  function situacao(d) {
+    if(d.prazo < todayStr) return '<span class="status-badge s-cancelada">⚠️ Atrasado</span>';
+    if(d.prazo === todayStr) return '<span class="status-badge s-aberta">🔔 Hoje</span>';
+    if(d.prazo <= in7Str) return '<span class="status-badge s-analise">📅 Esta semana</span>';
+    return '<span class="status-badge s-andamento">✅ No prazo</span>';
+  }
+  tbody.innerHTML = rows.length ? rows.map(r=>`<tr>
+    <td><span class="id-badge">${r.id}</span></td>
+    <td>${r.nome}</td><td>${r.tipo}</td>
+    <td><span class="status-badge ${STATUS_CLASSES[r.status]||''}">${r.status}</span></td>
+    <td>${r.responsavel||'—'}</td>
+    <td style="font-family:var(--mono);font-size:12px">${fmtDate(r.prazo)}</td>
+    <td>${situacao(r)}</td>
+    <td><button class="action-btn edit" onclick="openModal('${r.id}')">✏️ Editar</button></td>
+  </tr>`).join('') : '<tr><td colspan="8" class="no-data">Nenhum prazo encontrado</td></tr>';
+}
+
+// ===================== EXPORT / IMPORT =====================
+function exportData() {
+  if(!data.length) { toast('Sem dados para exportar','error'); return; }
+  const keys = ['id','data','email','nome','tipo','centroCusto','setor','descricao','anoMes','status','responsavel','feito','prazo','dataConclusao'];
+  const csv = [keys.join(';'), ...data.map(r=>keys.map(k=>`"${(r[k]||'').replace(/"/g,'""')}"`).join(';'))].join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `ideaflow_${today()}.csv`; a.click();
+  toast('CSV exportado com sucesso!','success');
+}
+function importClick() { document.getElementById('importFile').click(); }
+function importData(e) {
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const lines = ev.target.result.replace(/^\uFEFF/,'').split('\n').filter(Boolean);
+      const keys = lines[0].split(';').map(k=>k.trim().replace(/^"|"$/g,''));
+      const imported = lines.slice(1).map(line=>{
+        const vals = line.match(/(".*?"|[^;]+)(?=;|$)/g)||[];
+        const obj = {};
+        keys.forEach((k,i)=>{ obj[k] = (vals[i]||'').replace(/^"|"$/g,''); });
+        if(!obj.id) obj.id = genId();
+        return obj;
+      });
+      const existingIds = new Set(data.map(d=>d.id));
+      const news = imported.filter(r=>!existingIds.has(r.id));
+      data = [...news, ...data];
+      save();
+      document.getElementById('sidebarTotal').textContent = data.length;
+      toast(`${news.length} sugestões importadas!`,'success');
+      showPage('lista');
+    } catch(err) { toast('Erro ao importar arquivo','error'); }
+  };
+  reader.readAsText(file, 'UTF-8');
+  e.target.value = '';
+}
+
+// ===================== TOAST =====================
+function toast(msg, type='info') {
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = { success:'✅', error:'❌', info:'ℹ️' };
+  el.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.style.opacity='0'; el.style.transition='opacity 0.3s'; setTimeout(()=>el.remove(),300); }, 3000);
+}
+
+// ===================== SIDEBAR =====================
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+// ===================== PWA =====================
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  const banner = document.getElementById('installBanner');
+  const btn = document.getElementById('installBtn');
+  if(banner) banner.style.display = 'flex';
+  if(btn) btn.style.display = 'inline-flex';
+});
+function installPWA() {
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(r => {
+    if(r.outcome==='accepted') toast('App instalado com sucesso! 🎉','success');
+    deferredPrompt = null;
+    document.getElementById('installBanner').style.display='none';
+  });
+}
+window.addEventListener('appinstalled', () => { toast('IdeaFlow instalado!','success'); });
+
+// ===================== INIT =====================
+// load() é assíncrono e chama showPage('dashboard') e sidebarTotal internamente
+load();
+if('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>
